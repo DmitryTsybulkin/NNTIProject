@@ -15,9 +15,9 @@ if [ -z "$HF_TOKEN" ] || [ -z "$WANDB_KEY" ]; then
 fi
 
 # Configuration
-DOCKER_REGISTRY="docker.cs.uni-saarland.de"
-USER_NAME="dmts00001"  # Replace with your actual LSV username
-IMAGE_NAME="nnti-slid-training"
+DOCKER_REGISTRY="docker.io"
+USER_NAME="radioduran"  # Replace with your actual LSV username
+IMAGE_NAME="nnti-project"
 TAG_NAME="latest"
 
 FULL_IMAGE_NAME="${DOCKER_REGISTRY}/${USER_NAME}/${IMAGE_NAME}:${TAG_NAME}"
