@@ -1,5 +1,6 @@
 
 # %%
+import os
 from datetime import datetime
 current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -50,11 +51,17 @@ print(f"torch.cuda.get_device_name(): {torch.cuda.get_device_name()}")
 
 # %%
 # login to Hugging Face
-login(token="hf_xxx")
+HF_TOKEN = os.getenv("HF_TOKEN")
+if not HF_TOKEN:
+    raise ValueError("HF_TOKEN environment variable not set")
+login(token=HF_TOKEN)
 
 # %%
 # login to WANDB
-wandb.login(key="xxx")
+WANDB_KEY = os.getenv("WANDB_KEY")
+if not WANDB_KEY:
+    raise ValueError("WANDB_KEY environment variable not set")
+wandb.login(key=WANDB_KEY)
 
 # %%
 model_id = "facebook/mms-300m"

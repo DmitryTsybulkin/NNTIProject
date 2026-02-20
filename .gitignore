@@ -1,2 +1,11 @@
 venv/
 .DS_Store
+NNTI_Project_Description.pdf
+
+# Environment variables with secrets
+.env
+.env.*
+!.env.example
+
+# Model outputs
+indic-SLID/
