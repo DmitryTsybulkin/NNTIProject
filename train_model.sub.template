@@ -1,0 +1,16 @@
+universe                = docker
+docker_image            = ${DOCKER_REGISTRY}/${DOCKER_USER_NAME}/${DOCKER_IMAGE_NAME}:${DOCKER_TAG}
+environment             = "WANDB_TOKEN=${WANDB_TOKEN} HF_TOKEN=${HF_TOKEN} WANDB_TEAM=${WANDB_TEAM} WANDB_PROJECT=${WANDB_PROJECT} TORCH_HOME=/tmp/torch_cache HF_HOME=/tmp/hf_cache WANDB_CACHE_DIR=/tmp/wandb_cache USER=nntiuser LOGNAME=nntiuser TORCHINDUCTOR_CACHE_DIR=/tmp/inductor_cache"
+
+output                  = logs/train.$(ClusterId).out
+error                   = logs/train.$(ClusterId).err
+log                     = logs/train.$(ClusterId).log
+
+request_CPUs            = 2
+request_GPUs            = 1
+request_memory          = 16GB
+
++WantGPUHomeMounted     = true
+
+priority                = 0
+queue 1

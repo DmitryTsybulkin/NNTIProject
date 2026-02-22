@@ -9,3 +9,7 @@ NNTI_Project_Description.pdf
 
 # Model outputs
 indic-SLID/
+
+*.sub
+wandb/
+trainer_output/

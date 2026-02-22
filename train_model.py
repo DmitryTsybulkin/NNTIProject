@@ -2,6 +2,7 @@
 # %%
 import os
 from datetime import datetime
+os.environ["HF_DATASETS_OFFLINE"] = "0"
 current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 print(f"Current time: {current_time_str}")
@@ -14,6 +15,9 @@ import pandas as pd
 import numpy as np
 import torch
 import wandb
+
+import datasets
+datasets.config.FORCE_BATCH_DECODING = False
 
 from datasets import (
     load_dataset, 
@@ -47,7 +51,11 @@ print("Check if GPU available:")
 print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
 print(f"torch.cuda.get_device_name(): {torch.cuda.get_device_name()}")
 
-
+import resource
+# Increase the soft limit for open files to the maximum allowed hard limit
+soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+print(f"File limit increased from {soft} to {hard}")
 
 # %%
 # login to Hugging Face
@@ -56,17 +64,47 @@ if not HF_TOKEN:
     raise ValueError("HF_TOKEN environment variable not set")
 login(token=HF_TOKEN)
 
+print("Logged in to Hugging Face successfully!")
+
 # %%
 # login to WANDB
-WANDB_KEY = os.getenv("WANDB_KEY")
-if not WANDB_KEY:
-    raise ValueError("WANDB_KEY environment variable not set")
-wandb.login(key=WANDB_KEY)
+WANDB_TOKEN = os.getenv("WANDB_TOKEN")
+if not WANDB_TOKEN:
+    raise ValueError("WANDB_TOKEN environment variable not set")
+wandb.login(key=WANDB_TOKEN)
 
 # %%
 model_id = "facebook/mms-300m"
 #model_id = "utter-project/mHuBERT-147"
 #model_id = "facebook/wav2vec2-xls-r-300m"
+
+# %%
+batch_size = 8
+gradient_accumulation_steps = 2
+num_train_epochs = 3
+lr = 0.00001
+
+# %%
+WANDB_TEAM = os.getenv("WANDB_TEAM")
+if not WANDB_TEAM:
+    raise ValueError("WANDB_TEAM environment variable not set")
+
+WANDB_PROJECT = os.getenv("WANDB_PROJECT")
+if not WANDB_PROJECT:
+    raise ValueError("WANDB_PROJECT environment variable not set")
+wandb.init(
+    project=WANDB_PROJECT,
+    entity=WANDB_TEAM,
+    name=f"SLID_{model_id}_{lr}_{current_time_str}",
+    config={
+        "model_id": model_id,
+        "batch_size": batch_size,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "num_train_epochs": num_train_epochs,
+        "learning_rate": lr,
+        # todo: add any additional hyperparameters
+    }
+)
 
 
 # %%
@@ -228,15 +266,6 @@ class AudioDataCollator:
 
 # %%
 data_collator = AudioDataCollator(feature_extractor)
-
-# %%
-batch_size = 8
-gradient_accumulation_steps = 2
-num_train_epochs = 3
-lr = 0.00001
-
-# %%
-wandb.init(project="Indic-SLID", name=f"SLID_{model_id}_{lr}_{current_time_str}")
 
 # %%
 training_args = TrainingArguments(
