@@ -51,5 +51,3 @@ How to use wandb: <a href="https://www.youtube.com/watch?v=LQvRhQwDOm0">video</a
 ## Dataset
 
 https://huggingface.co/datasets/badrex/nnti-dataset-full
-
-## Task 1

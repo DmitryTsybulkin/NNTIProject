@@ -2,7 +2,24 @@
 # %%
 import os
 from datetime import datetime
-os.environ["HF_DATASETS_OFFLINE"] = "0"
+import subprocess
+
+
+print("===== GPU DEBUG INFO =====")
+
+print("CUDA_VISIBLE_DEVICES:", os.environ.get("CUDA_VISIBLE_DEVICES"))
+
+print("\n--- hostname ---")
+subprocess.run(["hostname"])
+
+print("\n--- nvidia-smi ---")
+subprocess.run(["nvidia-smi"])
+
+print("\n--- ECC errors ---")
+subprocess.run(["nvidia-smi", "-q", "-d", "ECC"])
+
+print("==========================")
+
 current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 print(f"Current time: {current_time_str}")
@@ -16,8 +33,10 @@ import numpy as np
 import torch
 import wandb
 
-import datasets
-datasets.config.FORCE_BATCH_DECODING = False
+print("Torch:", torch.__version__)
+print("wandb:", wandb.__version__)
+print("CUDA:", torch.cuda.is_available())
+print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "None")
 
 from datasets import (
     load_dataset, 
@@ -36,6 +55,7 @@ from transformers import (
     AutoConfig,
     DataCollatorWithPadding,
     TrainingArguments,
+    EarlyStoppingCallback,
     Trainer,
     set_seed
 )
@@ -51,11 +71,6 @@ print("Check if GPU available:")
 print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
 print(f"torch.cuda.get_device_name(): {torch.cuda.get_device_name()}")
 
-import resource
-# Increase the soft limit for open files to the maximum allowed hard limit
-soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
-print(f"File limit increased from {soft} to {hard}")
 
 # %%
 # login to Hugging Face
@@ -64,47 +79,17 @@ if not HF_TOKEN:
     raise ValueError("HF_TOKEN environment variable not set")
 login(token=HF_TOKEN)
 
-print("Logged in to Hugging Face successfully!")
-
 # %%
 # login to WANDB
-WANDB_TOKEN = os.getenv("WANDB_TOKEN")
-if not WANDB_TOKEN:
-    raise ValueError("WANDB_TOKEN environment variable not set")
-wandb.login(key=WANDB_TOKEN)
+WANDB_KEY = os.getenv("WANDB_KEY")
+if not WANDB_KEY:
+    raise ValueError("WANDB_KEY environment variable not set")
+wandb.login(key=WANDB_KEY)
 
 # %%
 model_id = "facebook/mms-300m"
 #model_id = "utter-project/mHuBERT-147"
 #model_id = "facebook/wav2vec2-xls-r-300m"
-
-# %%
-batch_size = 8
-gradient_accumulation_steps = 2
-num_train_epochs = 3
-lr = 0.00001
-
-# %%
-WANDB_TEAM = os.getenv("WANDB_TEAM")
-if not WANDB_TEAM:
-    raise ValueError("WANDB_TEAM environment variable not set")
-
-WANDB_PROJECT = os.getenv("WANDB_PROJECT")
-if not WANDB_PROJECT:
-    raise ValueError("WANDB_PROJECT environment variable not set")
-wandb.init(
-    project=WANDB_PROJECT,
-    entity=WANDB_TEAM,
-    name=f"SLID_{model_id}_{lr}_{current_time_str}",
-    config={
-        "model_id": model_id,
-        "batch_size": batch_size,
-        "gradient_accumulation_steps": gradient_accumulation_steps,
-        "num_train_epochs": num_train_epochs,
-        "learning_rate": lr,
-        # todo: add any additional hyperparameters
-    }
-)
 
 
 # %%
@@ -219,7 +204,7 @@ config.num_labels=num_labels
 config.label2id=str_to_int
 config.id2label=int_to_str
 
-do_apply_dropout = False 
+do_apply_dropout = True 
 
 # check if dropout is enabled
 if do_apply_dropout:
@@ -228,12 +213,7 @@ if do_apply_dropout:
     config.activation_dropout = 0.1       # Dropout after activation functions
     config.feat_proj_dropout = 0.1   
 
-# %%
-# spoken language ID (SLID) model
-slid_model = AutoModelForAudioClassification.from_pretrained(
-    model_id,
-    config=config,
-)
+
 
 # %%
 # create collator for padding
@@ -268,33 +248,35 @@ class AudioDataCollator:
 data_collator = AudioDataCollator(feature_extractor)
 
 # %%
-training_args = TrainingArguments(
-    group_by_length=False,
-    #run_name='SLID_1', 
-    report_to="wandb",  # enable logging to W&B
-    logging_steps=1,  # how often to log to W&B
-    per_device_train_batch_size=batch_size, 
-    per_device_eval_batch_size=batch_size,    
-    eval_strategy="steps",
-    eval_steps=100,
-    save_strategy="steps", 
-    save_steps=100,
-    learning_rate=lr,
-    gradient_accumulation_steps=gradient_accumulation_steps,
-    num_train_epochs=num_train_epochs,
-    weight_decay=0.01,
-    warmup_ratio=0.1,
-    load_best_model_at_end=True,
-    metric_for_best_model="accuracy",
-    greater_is_better=True,  # True if your metric should be maximized (like accuracy)
-    save_total_limit=2,  # Keep only the best model
-    fp16=True,
-    push_to_hub=False,
-)
+batch_size = 8
+gradient_accumulation_steps = 2
+num_train_epochs = 10
+lr = 0.00003
+
+# %%
+
+sweep_config = {
+    "method": "bayes",
+    "metric": {"name": "eval_accuracy", "goal": "maximize"},
+    "parameters": {
+        "learning_rate": {"min": 1.5e-5, "max": 4e-5},
+        "batch_size": {"values": [8, 16]},
+        "weight_decay": {"min": 0.13, "max": 0.25},
+        "warmup_ratio": {"min": 0.1, "max": 0.2},
+        "dropout": {"min": 0.0, "max": 0.05},
+        "num_train_epochs": {"values": [10, 15]},
+        "gradient_accumulation_steps": {"values": [2, 4, 8]},
+        "lr_scheduler_type": {"values": ["cosine"]}
+
+    }
+}
+
+sweep_id = wandb.sweep(sweep_config, project="Indic-SLID")
 
 # %%
 # load evaluation metrics
 accuracy_metric = evaluate.load("accuracy")
+
 
 def compute_metrics(eval_pred):
     """Computes accuracy on a batch of predictions"""
@@ -303,34 +285,70 @@ def compute_metrics(eval_pred):
         predictions=predictions, 
         references=eval_pred.label_ids
     )
+    
+def train():
+    run = wandb.init()
+    cfg = run.config
+    
+    config.hidden_dropout = cfg.dropout
+    config.attention_dropout = cfg.dropout
+    config.activation_dropout = cfg.dropout
+    config.feat_proj_dropout = cfg.dropout
 
+    training_args = TrainingArguments(
+        output_dir="./indic-SLID/checkpoints",
+        group_by_length=False,
+        #run_name='SLID_1', 
+        report_to="wandb",  # enable logging to W&B
+        logging_steps=10,  # how often to log to W&B
+        per_device_train_batch_size=cfg.batch_size, 
+        per_device_eval_batch_size=cfg.batch_size,    
+        eval_strategy="steps",
+        eval_steps=300,
+        save_strategy="steps", 
+        save_steps=100,
+        learning_rate=cfg.learning_rate,
+        lr_scheduler_type=cfg.lr_scheduler_type,
+        gradient_accumulation_steps=cfg.gradient_accumulation_steps,
+        num_train_epochs=cfg.num_train_epochs,
+        weight_decay=cfg.weight_decay,
+        warmup_ratio=cfg.warmup_ratio,
+        load_best_model_at_end=True,
+        metric_for_best_model="accuracy",
+        greater_is_better=True,  # True if your metric should be maximized (like accuracy)
+        save_total_limit=2,  # Keep only the best model
+        fp16=True,
+        push_to_hub=True,
+    )
 
-# %%
-trainer = Trainer(
-    slid_model,
-    training_args,
-    train_dataset=train_ds_encoded,
-    eval_dataset=valid_ds_encoded,
-    processing_class=feature_extractor,
-    data_collator=data_collator,  
-    compute_metrics=compute_metrics,
-)
+    model = AutoModelForAudioClassification.from_pretrained(
+        model_id, config=config
+    )
+   
+
+    trainer = Trainer(
+        model,
+        training_args,
+        train_dataset=train_ds_encoded,
+        eval_dataset=valid_ds_encoded,
+        processing_class=feature_extractor,
+        data_collator=data_collator,
+        compute_metrics=compute_metrics,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=4)],
+    )
+    
+
+    trainer.train()
+    trainer.push_to_hub()
+    
+    # final eval and save for each trial
+    print("Final evaluation starting...")
+    trainer.evaluate()
+
+    save_dir = f"./indic-SLID/inprogress_{run.id}"  # unique id per run
+    trainer.save_model(save_dir)
+    trainer.model.save_pretrained(save_dir)
 
 # %%
 print("Train loop starting...")
-trainer.train()
-
-# %%
-# push model to hub 
-# slid_model.push_to_hub(
-#     "your-hf-account/indic-language-identification"
-# )
-
-# %%
-print("Final evaluation starting...")
-trainer.evaluate()
-
-
-# save model to disk 
-save_dir = "./indic-SLID/inprogress"
-slid_model.save_pretrained(save_dir)
+wandb.agent(sweep_id, function=train, count=15)  # count = number of trials

@@ -9,7 +9,9 @@ NNTI_Project_Description.pdf
 
 # Model outputs
 indic-SLID/
-
-*.sub
+inprogress_tjvqnpsn/
 wandb/
-trainer_output/
+
+# Embeddings and metadata
+*.csv
+*.npy
