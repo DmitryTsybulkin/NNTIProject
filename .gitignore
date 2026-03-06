@@ -15,3 +15,7 @@ wandb/
 trainer_output/
 processed_data/
 baseline-SLID/
+
+# Embeddings and metadata
+*.csv
+*.npy

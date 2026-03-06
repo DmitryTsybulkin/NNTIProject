@@ -72,3 +72,4 @@ RUN mkdir -p /cache/huggingface /cache/wandb /cache/torch && \
 
 # Switch to non-root user
 USER ${USER_NAME}
+

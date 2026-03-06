@@ -1,63 +1,57 @@
 #!/bin/bash
 
-# Enable Docker BuildKit for faster builds with caching
-export DOCKER_BUILDKIT=1
-
 # Load environment variables from .env file
 if [ -f .env ]; then
     export $(cat .env | grep -v '^#' | xargs)
 else
     echo "Error: .env file not found!"
-    echo "Please create .env file with your configuration first."
     exit 1
 fi
 
-# Check if Docker registry config is set
-if [ -z "$DOCKER_REGISTRY" ] || [ -z "$DOCKER_USER_NAME" ] || [ -z "$DOCKER_IMAGE_NAME" ] || [ -z "$DOCKER_TAG" ]; then
-    echo "Error: Docker configuration not set in .env file"
-    echo "Required: DOCKER_REGISTRY, DOCKER_USER_NAME, DOCKER_IMAGE_NAME, DOCKER_TAG"
+# Check if tokens are set
+if [ -z "$HF_TOKEN" ] || [ -z "$WANDB_KEY" ]; then
+    echo "Error: HF_TOKEN or WANDB_KEY not set in .env file"
     exit 1
 fi
 
-# Build full image name
-FULL_IMAGE_NAME="${DOCKER_REGISTRY}/${DOCKER_USER_NAME}/${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
+# Configuration
+DOCKER_REGISTRY="docker.io"
+USER_NAME="niph00001"  # Replace with your actual LSV username
+IMAGE_NAME="nnti-project"
+TAG_NAME="latest"
 
-echo "🔨 Building Docker image..."
-docker build \
+FULL_IMAGE_NAME="${DOCKER_REGISTRY}/${USER_NAME}/${IMAGE_NAME}:${TAG_NAME}"
+
+echo "Building Docker image: ${FULL_IMAGE_NAME}"
+echo "Using UID: ${UID}"
+echo "Using username: $(id -un)"
+
+# Build the Docker image with secrets
+docker buildx build \
+    --platform linux/amd64 \
     -t ${FULL_IMAGE_NAME} \
+    --build-arg USER_UID=1620001602 \
+    --build-arg USER_NAME=neuronet_team108 \
     -f Dockerfile \
+    --push \
     .
+    
 
 if [ $? -eq 0 ]; then
+    echo "✓ Docker image built successfully!"
     echo ""
-    echo "✅ Docker image built successfully!"
-    echo ""
-    echo "🚀 Pushing to registry..."
+    echo "Pushing to registry..."
     docker push ${FULL_IMAGE_NAME}
 
     if [ $? -eq 0 ]; then
         echo "✓ Image pushed successfully!"
         echo ""
-        echo "════════════════════════════════════════════════════════"
-        echo "✅ IMAGE SUCCESSFULLY DEPLOYED!"
-        echo "════════════════════════════════════════════════════════"
-        echo ""
-        echo "📍 Image Location:"
-        echo "   ${FULL_IMAGE_NAME}"
-        echo ""
-        echo "🐳 Pull command:"
-        echo "   docker pull ${FULL_IMAGE_NAME}"
-        echo ""
-        echo "📝 For HTCondor, use this in train_model.sub:"
-        echo "   docker_image = ${FULL_IMAGE_NAME}"
-        echo ""
-        echo "════════════════════════════════════════════════════════"
+        echo "Image available at: ${FULL_IMAGE_NAME}"
     else
-        echo "❌ Failed to push image to registry"
+        echo "✗ Failed to push image"
         exit 1
     fi
 else
-    echo "❌ Failed to build Docker image"
+    echo "✗ Failed to build Docker image"
     exit 1
 fi
-
