@@ -254,23 +254,23 @@ num_train_epochs = 10
 lr = 0.00003
 
 # %%
-
+# Configure which hyperparameters to sweep over and their ranges/values
 sweep_config = {
-    "method": "bayes",
+    "method": "bayes", # Bayesian optimization to efficiently explore the hyperparameter space
     "metric": {"name": "eval_accuracy", "goal": "maximize"},
     "parameters": {
         "learning_rate": {"min": 1.5e-5, "max": 4e-5},
         "batch_size": {"values": [8, 16]},
         "weight_decay": {"min": 0.13, "max": 0.25},
-        "warmup_ratio": {"min": 0.1, "max": 0.2},
+        "warmup_ratio": {"min": 0.1, "max": 0.2}, # fraction of total training steps used for linear warmup of the learning rate.
         "dropout": {"min": 0.0, "max": 0.05},
-        "num_train_epochs": {"values": [10, 15]},
-        "gradient_accumulation_steps": {"values": [2, 4, 8]},
-        "lr_scheduler_type": {"values": ["cosine"]}
+        "num_train_epochs": {"values": [10, 15]}, 
+        "gradient_accumulation_steps": {"values": [2, 4, 8]}, # This allows for increased batch size by accumulating gradients over multiple smaller batches before performing an optimizer step.
+        "lr_scheduler_type": {"values": ["cosine"]} # Experiment with different learning rate schedulers like 'linear' or 'cosine'
 
     }
 }
-
+# Create the sweep on W&B and get the sweep ID
 sweep_id = wandb.sweep(sweep_config, project="Indic-SLID")
 
 # %%
@@ -286,9 +286,10 @@ def compute_metrics(eval_pred):
         references=eval_pred.label_ids
     )
     
+# Define the training function that will be called by each sweep trial
 def train():
-    run = wandb.init()
-    cfg = run.config
+    run = wandb.init() # Start a new W&B run for each trial
+    cfg = run.config # Access the hyperparameters for this trial
     
     config.hidden_dropout = cfg.dropout
     config.attention_dropout = cfg.dropout
@@ -320,30 +321,30 @@ def train():
         fp16=True,
         push_to_hub=True,
     )
-
+    # Create model inside the train function to ensure each trial starts with a fresh model
     model = AutoModelForAudioClassification.from_pretrained(
         model_id, config=config
     )
    
-
+    # Init trainer which controls batching, tracking, early stopping, etc.
     trainer = Trainer(
         model,
-        training_args,
+        training_args, #
         train_dataset=train_ds_encoded,
         eval_dataset=valid_ds_encoded,
-        processing_class=feature_extractor,
-        data_collator=data_collator,
-        compute_metrics=compute_metrics,
+        processing_class=feature_extractor, # This allows the trainer to use the feature extractor's native padding and attention mask handling
+        data_collator=data_collator, # This collator will be called to prepare each batch during training and evaluation
+        compute_metrics=compute_metrics, 
         callbacks=[EarlyStoppingCallback(early_stopping_patience=4)],
     )
     
 
-    trainer.train()
+    trainer.train() # Train the model with the current hyperparameters
     trainer.push_to_hub()
     
     # final eval and save for each trial
     print("Final evaluation starting...")
-    trainer.evaluate()
+    trainer.evaluate() # Evaluate the model on the validation set after training
 
     save_dir = f"./indic-SLID/inprogress_{run.id}"  # unique id per run
     trainer.save_model(save_dir)
