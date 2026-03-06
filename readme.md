@@ -58,6 +58,9 @@ This script contain the best model with speed+noise+kNN augmentations and the be
 
 ## Task 3 - Analyze the Model
 
+1. Run python `./scripts/t-sne.py` to get the t-SNE visualization of the model's embeddings.
+2. Run python `./scripts/t-SNE_all.py` to get the t-SNE visualization of the model's embeddings for all languages.
+
 ## Dataset
 
 https://huggingface.co/datasets/badrex/nnti-dataset-full

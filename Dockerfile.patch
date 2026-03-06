@@ -1,3 +1,0 @@
-FROM niph00001/nnti-project:tutor
-RUN python3 -m pip install --no-cache-dir --upgrade wandb
-COPY train_model.py /app/train_model.py
