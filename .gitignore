@@ -13,3 +13,5 @@ indic-SLID/
 *.sub
 wandb/
 trainer_output/
+processed_data/
+baseline-SLID/
