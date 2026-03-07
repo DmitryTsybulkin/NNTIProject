@@ -1,16 +1,6 @@
 FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
-# Accept build arguments for API tokens
-ARG USER_UID=1620001602
-ARG USER_NAME=neuronet_team108
-
-# Set working directory
 WORKDIR /app
-
-# Create user with specified UID and name
-RUN groupadd -g ${USER_UID} ${USER_NAME} && \
-    useradd -m -u ${USER_UID} -g ${USER_NAME} ${USER_NAME}
-
 
 LABEL maintainer="Hugging Face"
 
@@ -35,8 +25,9 @@ RUN python3 -m pip install --no-cache-dir \
 
 # install pinned dependencies
 RUN python3 -m pip install --no-cache-dir \
+    python-dotenv \
     accelerate==1.10.1 \
-    datasets==3.3.2 \
+    datasets==4.3.0 \
     evaluate==0.4.5 \
     huggingface-hub==0.34.4 \
     jiwer==4.0.0 \
@@ -67,9 +58,11 @@ RUN python3 -m pip install --no-cache-dir \
     tokenizers==0.21.4 \
     tqdm==4.67.1
 
+# Create writable cache directories
 RUN mkdir -p /cache/huggingface /cache/wandb /cache/torch && \
-    chown -R ${USER_NAME}:${USER_NAME} /cache
+    chmod -R 777 /cache
 
-# Switch to non-root user
-USER ${USER_NAME}
-
+# Set default cache locations
+ENV HF_HOME=/cache/huggingface
+ENV WANDB_DIR=/cache/wandb
+ENV TORCH_HOME=/cache/torch
