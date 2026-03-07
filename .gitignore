@@ -4,8 +4,8 @@ NNTI_Project_Description.pdf
 
 # Environment variables with secrets
 .env
-.env.*
-!.env.example
+code/.env.example
+!code/.env.example
 
 # Model outputs
 indic-SLID/

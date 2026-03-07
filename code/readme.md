@@ -17,6 +17,9 @@ but make sure to have a compatible GPU and enough resources. For easier setup we
 1. `deploy.sh` - builds the docker image and pushes it to the registry;
 2. `sync_job.sh` - synchronizes the code with the cluster and submits the job.
 
+These files use .env file for configuration, so make sure to set the environment variables.
+The `sync_job.sh` script uses `train_model.sub.template` as a template for the job submission (The script copies it to the submission node).
+
 To run these scripts it's important to have Docker installed and configured the .env file according to the .env.example.
 
 # How to Run Standalone Code Locally
@@ -58,8 +61,12 @@ This script contain the best model with speed+noise+kNN augmentations and the be
 
 ## Task 3 - Analyze the Model
 
+Validation of bias correction after augmentation with t-SNE visualization of the model's last layer:
+
 1. Run python `./scripts/t-sne.py` to get the t-SNE visualization of the model's embeddings.
 2. Run python `./scripts/t-SNE_all.py` to get the t-SNE visualization of the model's embeddings for all languages.
+
+> Note: the script `it-SNE_all.py` requires more resources and time.
 
 ## Dataset
 

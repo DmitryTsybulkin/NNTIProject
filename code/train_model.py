@@ -1,6 +1,10 @@
 # %%
 import os
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["HOME"] = "/tmp"
+os.environ["WANDB_DIR"] = "/tmp"
+os.environ["WANDB_CONFIG_DIR"] = "/tmp"
+os.environ["WANDB_CACHE_DIR"] = "/tmp"
 
 from datetime import datetime
 
@@ -133,10 +137,10 @@ feature_extractor = AutoFeatureExtractor.from_pretrained(
 # ──────────────────────────────────────────────
 cache_base = os.path.join(
     KNNVC_LOCAL_DIR, "knnvc_cache",
-    f"{model_id.split('/')[-1]}_{max_duration}sec_knnvc",
 )
 
-if not os.path.exists(KNNVC_LOCAL_DIR):
+
+if not os.path.exists(cache_base):
     print(f"Downloading kNN-VC cache from {KNNVC_CACHE_REPO} ...")
     snapshot_download(
         repo_id=KNNVC_CACHE_REPO,
@@ -147,6 +151,7 @@ if not os.path.exists(KNNVC_LOCAL_DIR):
     print("Download complete")
 else:
     print(f"Using cached download at {KNNVC_LOCAL_DIR}")
+
 
 print("Loading Arrow datasets...")
 orig_train       = load_from_disk(os.path.join(cache_base, "train", "original"))
