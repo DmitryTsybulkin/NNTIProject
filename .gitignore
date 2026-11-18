@@ -3,7 +3,7 @@ venv/
 NNTI_Project_Description.pdf
 
 # Environment variables with secrets
-.env
+code/.env
 code/.env.example
 !code/.env.example
 
@@ -19,3 +19,20 @@ baseline-SLID/
 # Embeddings and metadata
 *.csv
 *.npy
+*.zip
+
+# IDE / OS
+.idea/
+.DS_Store
+
+# LaTeX template sample & build artifacts
+report/eacl2023.pdf
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*.synctex.gz
+
+# Full ACL Anthology bib (40 MB, unused)
+report/anthology.bib
